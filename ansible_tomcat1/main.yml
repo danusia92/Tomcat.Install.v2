@@ -1,0 +1,25 @@
+---
+- hosts: local
+  remote_user: ansible
+  become: yes
+  become_method: sudo
+  connection: ssh
+  gather_facts: yes
+#  vars:
+#     tomcat_variable: "{{ tomcat }}"
+
+  vars_prompt:
+      - name: "tomcat_variable"
+        prompt: "Product release version"
+        default: 8.5
+
+  roles:
+#     - role: java
+#       when: "ansible_os_family == 'Debian'"
+#       java_packages:
+#         - openjdk-8-jdk
+     - role: java
+       when: "ansible_os_family == 'RedHat'"
+       java_packages:
+         - java-1.8.0-openjdk
+     - role: tomcat

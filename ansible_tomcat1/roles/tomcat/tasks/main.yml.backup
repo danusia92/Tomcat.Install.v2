@@ -1,0 +1,37 @@
+---
+- name: add group "tomcat"
+  group: name=tomcat
+
+- name: add user "tomcat"
+  user: name=tomcat group=tomcat home=/usr/share/tomcat createhome=no
+  become: True
+  become_method: sudo
+
+#- name: Grep the version needed
+#  shell: curl -s http://svn.apache.org/repos/asf/tomcat/site/trunk/docs/doap_Tomcat.rdf | egrep -A2 "Latest Stable {{ tomcat_variable }}" | cut -f2 -d ">" | cut -f1 -d "<" | tail -1
+#  register: result
+
+- name: Get page content
+  uri:
+    url: http://svn.apache.org/repos/asf/tomcat/site/trunk/docs/doap_Tomcat.rdf
+    return_content: yes
+  register: webpage_tomcat
+
+- name: Grep the version needed
+  shell: curl -s http://svn.apache.org/repos/asf/tomcat/site/trunk/docs/doap_Tomcat.rdf | egrep -A2 "Latest Stable {{ tomcat_variable }}" | cut -f2 -d ">" | cut -f1 -d "<" | tail -1
+  register: result
+
+
+
+#- name: Debug the grep
+#  debug: msg={{ result }}
+
+#- name: Get version variable
+#  shell: 'cut -d "." -f1 {{ danusia.stdout }}'
+#  register: version
+
+- name: Get the debug for variable
+  debug: msg={{ webpage_tomcat }} 
+
+#- name: Download Tomcat
+#  get_url: url=http://apache.javapipe.com/tomcat/tomcat-{{ version }}/v{{ danusia.stdout }}/bin/apache-tomcat-{{ danusia.stdout }}.tar.gz dest=/opt/apache-tomcat-{{ danusia.stdout }}.tar.gz

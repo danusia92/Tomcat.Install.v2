@@ -1,0 +1,65 @@
+---
+- name: add group "tomcat"
+  group: name=tomcat
+
+- name: add user "tomcat"
+  user: name=tomcat group=tomcat home=/usr/share/tomcat createhome=no
+  become: True
+  become_method: sudo
+
+- name: Grep the needed version
+  shell: curl -s http://svn.apache.org/repos/asf/tomcat/site/trunk/docs/doap_Tomcat.rdf | egrep -A2 "Latest Stable {{ tomcat_variable }}" | cut -f2 -d ">" | cut -f1 -d "<" | tail -1
+  register: danusia
+
+- name: Debug the grep
+  debug: msg={{ danusia.stdout }}
+
+- name: Get version variable
+  shell: 'curl -s http://svn.apache.org/repos/asf/tomcat/site/trunk/docs/doap_Tomcat.rdf | egrep -A2 "Latest Stable {{ tomcat_variable }}" | cut -f2 -d ">" | cut -f1 -d "." | tail -1'
+  register: version
+
+- name: Get the debug for version variable
+  debug: msg={{ version.stdout }} 
+
+- name: Download Tomcat
+  get_url: url=https://archive.apache.org/dist/tomcat/tomcat-{{ version.stdout }}/v{{ danusia.stdout }}/bin/apache-tomcat-{{ danusia.stdout }}.tar.gz dest=/opt/apache-tomcat-{{ danusia.stdout }}.tar.gz
+
+- name: Extract archive
+  command: chdir=/opt/ /bin/tar xvf /opt/apache-tomcat-{{ danusia.stdout }}.tar.gz -C /opt/ creates=/opt/apache-tomcat-{{ danusia.stdout }}
+
+- name: Change ownership of Tomcat installation
+  file: path=/opt/apache-tomcat-{{ danusia.stdout }} owner=tomcat group=tomcat state=directory recurse=yes
+
+- name: Configure Tomcat users
+  template: src=tomcat-users.xml dest=/opt/apache-tomcat-{{ danusia.stdout }}/conf/
+  notify: restart tomcat
+  when: ansible_os_family == "RedHat"
+
+- name: Create tomcat-users.xml for Ubuntu
+  template:
+    src: templates/tomcat_users_ubuntu.xml
+    dest: /opt/apache-tomcat-{{ danusia.stdout }}/conf/
+  notify: restart tomcat
+  when: ansible_os_family == "Debian"
+
+- name: Create systemd service script for Tomcat CentOs
+  template:
+    src: "templates/tomcat.service.centos"
+    dest: "/etc/systemd/system/tomcat.service"
+  when: ansible_os_family == "RedHat"
+
+- name: Create systemd service script for Tomcat Ubuntu
+  template:
+    src: "templates/tomcat.service.ubuntu"
+    dest: "/etc/systemd/system/tomcat.service"
+  when: ansible_os_family == "Debian"
+
+- name: Reload daemon
+  command: systemctl daemon-reload
+  notify: restart tomcat
+
+- name: Start and enable Tomcat service
+  systemd:
+    name: tomcat
+    state: started
+    enabled: true
